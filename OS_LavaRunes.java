@@ -6,6 +6,7 @@ import java.awt.Graphics;
 import org.tribot.api.DynamicClicking;
 import org.tribot.api.General;
 import org.tribot.api.Timing;
+import org.tribot.api.input.Mouse;
 import org.tribot.api.types.generic.Condition;
 import org.tribot.api.util.abc.ABCUtil;
 import org.tribot.api2007.Banking;
@@ -50,6 +51,8 @@ public class OS_LavaRunes extends Script implements Painting {
 
 	@Override
 	public void run() {
+		println("OS Lava Runecrafter started.");
+		Mouse.setSpeed(General.random(115, 125));
 		while (true) {
 			antiban();
 			switch (getState()) {
@@ -151,8 +154,20 @@ public class OS_LavaRunes extends Script implements Painting {
 		if (Player.getPosition().distanceTo(bankChest) > 3) {
 			Walking.clickTileMM(bankChest, 1);
 			Camera.setCameraRotation(General.random(250, 290));
-			while (Player.isMoving())
-				sleep(1000, 1100);
+			Timing.waitCondition(new Condition() {
+				@Override
+				public boolean active() {
+					return Player.isMoving();
+				}
+
+			}, General.random(8000, 9000));
+			Timing.waitCondition(new Condition() {
+				@Override
+				public boolean active() {
+					return !Player.isMoving();
+				}
+
+			}, General.random(8000, 9000));
 		}
 		if (!Banking.isBankScreenOpen())
 			Banking.openBank();
