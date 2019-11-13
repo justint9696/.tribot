@@ -13,6 +13,8 @@ import org.tribot.api2007.Camera;
 import org.tribot.api2007.Equipment;
 import org.tribot.api2007.Equipment.SLOTS;
 import org.tribot.api2007.Game;
+import org.tribot.api2007.GameTab;
+import org.tribot.api2007.GameTab.TABS;
 import org.tribot.api2007.Skills.SKILLS;
 import org.tribot.api2007.Inventory;
 import org.tribot.api2007.Login;
@@ -24,9 +26,13 @@ import org.tribot.api2007.WebWalking;
 import org.tribot.api2007.types.RSItem;
 import org.tribot.api2007.types.RSObject;
 import org.tribot.api2007.types.RSTile;
+import org.tribot.api2007.util.DPathNavigator;
 import org.tribot.script.Script;
+import org.tribot.script.ScriptManifest;
 import org.tribot.script.interfaces.Painting;
 
+@ScriptManifest(authors = {
+		"MaxedNinja123" }, category = "Runecrafting", name = "OS Lava Runes", description = "Runecrafts lava runes. Ring of dueling support. Stamina potion support. ABC2 features implemented.")
 public class OS_LavaRunes extends Script implements Painting {
 
 	public long startTime = System.currentTimeMillis();
@@ -34,10 +40,13 @@ public class OS_LavaRunes extends Script implements Painting {
 	public RSTile duelArena = new RSTile(3316, 3236, 0);
 	public RSTile castleWars = new RSTile(2439, 3090, 0);
 	public RSTile mysteriousRuins = new RSTile(3312, 3253, 0);
+	public RSTile fireAltar = new RSTile(2583, 4838, 0);
 	public int[] ring = { 2552, 2554, 2556, 2558, 2560, 2562, 2564 };
 	public int[] stamina = { 12625, 12627, 12629, 12631 };
+	public int[] bankItems = { 12625, 12627, 12629, 12631, 557 };
 	public int startExp = Skills.getXP(SKILLS.RUNECRAFTING);
 	public ABCUtil abc_util = new ABCUtil();
+	public DPathNavigator path = new DPathNavigator();
 
 	@Override
 	public void run() {
@@ -68,6 +77,8 @@ public class OS_LavaRunes extends Script implements Painting {
 				teleport("Castle Wars");
 				break;
 			default:
+				println("We are lost.");
+				stopScript();
 				break;
 			}
 			sleep(1000, 1100);
@@ -76,14 +87,13 @@ public class OS_LavaRunes extends Script implements Painting {
 
 	private enum State {
 		USING_STAMINA, BANKING, TELEPORTING_TO_DUEL_ARENA, WALKING_TO_RUINS, ENTERING_RUINS, WALKING_TO_ALTAR,
-		CRAFTING_RUNES, TELEPORTING_TO_CASTLE_WARS, AFK;
+		CRAFTING_RUNES, TELEPORTING_TO_CASTLE_WARS, LOST;
 	}
 
 	private State getState() {
 		if (Game.getRunEnergy() < 30) {
 			return State.USING_STAMINA;
-		}
-		if (isAtBank()) {
+		} else if (isAtBank()) {
 			if (!Inventory.isFull())
 				return State.BANKING;
 			else
@@ -95,7 +105,7 @@ public class OS_LavaRunes extends Script implements Painting {
 		} else if (isAtFireAltar()) {
 			return State.WALKING_TO_ALTAR;
 		} else {
-			RSObject[] ruins = Objects.findNearest(5, "Mysterious ruins");
+			RSObject[] ruins = Objects.findNearest(15, "Mysterious ruins");
 			if (ruins.length > 0)
 				return State.ENTERING_RUINS;
 			else {
@@ -108,7 +118,7 @@ public class OS_LavaRunes extends Script implements Painting {
 				}
 			}
 		}
-		return State.AFK;
+		return State.LOST;
 	}
 
 	private boolean isAtBank() {
@@ -141,6 +151,8 @@ public class OS_LavaRunes extends Script implements Painting {
 		if (Player.getPosition().distanceTo(bankChest) > 3) {
 			Walking.clickTileMM(bankChest, 1);
 			Camera.setCameraRotation(General.random(250, 290));
+			while (Player.isMoving())
+				sleep(1000, 1100);
 		}
 		if (!Banking.isBankScreenOpen())
 			Banking.openBank();
@@ -163,6 +175,7 @@ public class OS_LavaRunes extends Script implements Painting {
 			if (ringOfDueling2.length > 0) {
 				if (ringOfDueling2[0].click("Wear"))
 					Timing.waitCondition(new Condition() {
+
 						@Override
 						public boolean active() {
 							return Equipment.isEquipped(ring);
@@ -172,7 +185,14 @@ public class OS_LavaRunes extends Script implements Painting {
 			}
 			Banking.openBank();
 		}
-		Banking.depositAllExcept("Earth rune");
+		Banking.depositAllExcept(bankItems);
+		if (Inventory.find(stamina).length < 1) {
+
+			RSItem[] staminaPotion = Banking.find(stamina);
+			if (staminaPotion.length > 0) {
+				Banking.withdraw(1, stamina);
+			}
+		}
 		RSItem[] earthRunes = Banking.find("Earth rune");
 		if (earthRunes.length < 0) {
 			Login.logout();
@@ -252,23 +272,16 @@ public class OS_LavaRunes extends Script implements Painting {
 	}
 
 	private void walkToRuins() {
-		Camera.setCameraRotation(General.random(300, 360));
-		while (Player.getPosition().distanceTo(mysteriousRuins) > 3) {
-			WebWalking.walkTo(mysteriousRuins);
-			sleep(1000, 1100);
-		}
+		println("Walking from " + Player.getPosition() + " to " + mysteriousRuins);
+		Camera.setCameraRotation(General.random(330, 360));
+		path.traverse(mysteriousRuins);
 	}
 
 	private void walkToAltar() {
-		RSObject[] altar = Objects.findNearest(15, "Altar");
-		if (altar.length > 0) {
-			Camera.setCameraRotation(General.random(200, 225));
-			while (Player.getPosition().distanceTo(altar[0].getPosition()) > 3) {
-				WebWalking.walkTo(new RSTile(altar[0].getPosition().getX() + General.random(-1, 1),
-						altar[0].getPosition().getY() + General.random(-1, 1)));
-				sleep(1000, 1100);
-			}
-		}
+		println("Walking from " + Player.getPosition() + " to " + fireAltar);
+		Camera.setCameraRotation(General.random(200, 250));
+		Camera.setCameraAngle(General.random(80, 100));
+		path.traverse(fireAltar);
 	}
 
 	private void enterRuins() {
@@ -294,13 +307,6 @@ public class OS_LavaRunes extends Script implements Painting {
 						@Override
 						public boolean active() {
 							return Player.getAnimation() == 791;
-						}
-
-					}, General.random(8000, 9000));
-					Timing.waitCondition(new Condition() {
-						@Override
-						public boolean active() {
-							return Player.getAnimation() == -1;
 						}
 
 					}, General.random(8000, 9000));
