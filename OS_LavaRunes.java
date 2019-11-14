@@ -180,6 +180,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 					@Override
 					public boolean active() {
+						sleep(100);
 						return Inventory.find(ring).length > 0;
 					}
 				}, General.random(8000, 9000));
@@ -197,6 +198,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 						@Override
 						public boolean active() {
+							sleep(100);
 							return Equipment.isEquipped(ring);
 						}
 
@@ -226,6 +228,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 				@Override
 				public boolean active() {
+					sleep(100);
 					return Inventory.find("Earth rune").length > 0;
 				}
 
@@ -244,6 +247,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			Timing.waitCondition(new Condition() {
 				@Override
 				public boolean active() {
+					sleep(100);
 					return Inventory.find("Earth talisman").length > 0;
 				}
 
@@ -270,6 +274,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			Timing.waitCondition(new Condition() {
 				@Override
 				public boolean active() {
+					sleep(100);
 					return Inventory.find("Rune essence", "Pure essence").length > 0;
 				}
 			}, General.random(8000, 9000));
@@ -291,6 +296,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				Timing.waitCondition(new Condition() {
 					@Override
 					public boolean active() {
+						sleep(100);
 						return Player.getAnimation() == 714;
 					}
 
@@ -298,6 +304,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				Timing.waitCondition(new Condition() {
 					@Override
 					public boolean active() {
+						sleep(100);
 						return Player.getAnimation() == -1;
 					}
 
