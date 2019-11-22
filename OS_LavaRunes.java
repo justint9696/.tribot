@@ -2,10 +2,16 @@ package scripts;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.Point;
 import java.awt.Toolkit;
+import java.io.IOException;
+import java.net.URL;
+
+import javax.imageio.ImageIO;
 
 import org.tribot.api.DynamicClicking;
 import org.tribot.api.General;
@@ -39,27 +45,85 @@ import org.tribot.script.interfaces.MousePainting;
 import org.tribot.script.interfaces.Painting;
 
 @ScriptManifest(authors = {
-		"MaxedNinja123" }, category = "Runecrafting", name = "OS Lava Runes", description = "Runecrafts lava runes. Ring of dueling support and stamina poition support. ABC2 features implemented.")
+		"MaxedNinja123" }, category = "Runecrafting", name = "OS Lava Runecrafter", description = "Runecrafts lava runes. Ring of dueling support and stamina poition support. ABC2 features implemented.")
 public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 	public long startTime = System.currentTimeMillis();
+
 	public RSTile bankChest = new RSTile(2443, 3083, 0);
 	public RSTile duelArena = new RSTile(3316, 3236, 0);
 	public RSTile castleWars = new RSTile(2439, 3090, 0);
 	public RSTile mysteriousRuins = new RSTile(3312, 3253, 0);
 	public RSTile fireAltar = new RSTile(2583, 4838, 0);
+
 	public int[] ring = { 2552, 2554, 2556, 2558, 2560, 2562, 2564 };
 	public int[] stamina = { 12625, 12627, 12629, 12631 };
 	public int[] bankItems = { 12625, 12627, 12629, 12631, 557, 5514, 5512, 5510, 5509 };
-	public int[] ESSENCE_POUCHES = { 5514, 5512, 5510, 5509 };
 	public int startExp = Skills.getXP(SKILLS.RUNECRAFTING);
+
 	public ABCUtil ABCUtil = new ABCUtil();
+
 	public DPathNavigator DPath = new DPathNavigator();
+
+	public final Image paint = getImage("https://i.imgur.com/5L1n7NR.png");
+
+	public Font font = new Font("Orator Std", Font.BOLD, 14);
+
 	public boolean GUI_COMPLETE = false;
 	public boolean staminaSupport = false;
 
 	@Override
 	public void run() {
+		if (onStart()) {
+			while (true) {
+				long startTime = System.currentTimeMillis();
+				switch (getState()) {
+				case USING_STAMINA:
+					antiban();
+					stamina();
+					break;
+				case WALKING_TO_BANK:
+					antiban();
+					walkToBank();
+					break;
+				case BANKING:
+					antiban();
+					bank();
+					break;
+				case TELEPORTING_TO_DUEL_ARENA:
+					antiban();
+					teleport("Duel Arena");
+					break;
+				case WALKING_TO_RUINS:
+					antiban();
+					walkToRuins();
+					break;
+				case ENTERING_RUINS:
+					antiban();
+					enterRuins();
+					break;
+				case WALKING_TO_ALTAR:
+					antiban();
+					walkToAltar();
+					break;
+				case CRAFTING_RUNES:
+					antiban();
+					craftRunes();
+					break;
+				case TELEPORTING_TO_CASTLE_WARS:
+					antiban();
+					teleport("Castle Wars");
+					break;
+				default:
+					break;
+				}
+				ABCUtil.generateTrackers(System.currentTimeMillis() - startTime);
+				ABCUtil.generateReactionTime();
+			}
+		}
+	}
+
+	private boolean onStart() {
 		GUI GUI = new GUI();
 
 		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
@@ -75,53 +139,11 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 		GUI.setVisible(false);
 
-		Mouse.setSpeed(General.random(125, 150));
+		Mouse.setSpeed(General.random(100, 115));
 
 		println("OS Lava Runecrafter started.");
 
-		while (true) {
-			switch (getState()) {
-			case USING_STAMINA:
-				antiban();
-				stamina();
-				break;
-			case WALKING_TO_BANK:
-				antiban();
-				walkToBank();
-				break;
-			case BANKING:
-				antiban();
-				bank();
-				break;
-			case TELEPORTING_TO_DUEL_ARENA:
-				antiban();
-				teleport("Duel Arena");
-				break;
-			case WALKING_TO_RUINS:
-				antiban();
-				walkToRuins();
-				break;
-			case ENTERING_RUINS:
-				antiban();
-				enterRuins();
-				break;
-			case WALKING_TO_ALTAR:
-				antiban();
-				walkToAltar();
-				break;
-			case CRAFTING_RUNES:
-				antiban();
-				craftRunes();
-				break;
-			case TELEPORTING_TO_CASTLE_WARS:
-				antiban();
-				teleport("Castle Wars");
-				break;
-			default:
-				break;
-			}
-			sleep(300, 800);
-		}
+		return true;
 	}
 
 	private enum State {
@@ -195,15 +217,14 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 	private void bank() {
 		if (!Banking.isBankScreenOpen())
 			Banking.openBank();
-		else {
-			Banking.depositAllExcept(bankItems);
-			withdrawRing();
-			withdrawStamina();
-			withdrawRunes();
-			withdrawTalisman();
-			withdrawEssence();
-			Banking.close();
-		}
+
+		Banking.depositAllExcept(bankItems);
+		withdrawRing();
+		withdrawStamina();
+		withdrawRunes();
+		withdrawTalisman();
+		withdrawEssence();
+		Banking.close();
 	}
 
 	private void withdrawRing() {
@@ -358,22 +379,21 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 	private void walkToBank() {
 		if (isAtCastleWars()) {
 			if (Player.getPosition().distanceTo(bankChest) > 3) {
-				Timing.waitCondition(() -> WebWalking.walkTo(bankChest) && bankChest.adjustCameraTo(), 3000);
+				Timing.waitCondition(() -> DPath.traverse(bankChest) && bankChest.adjustCameraTo(), 3000);
 			}
 		}
 	}
 
 	private void walkToRuins() {
 		if (Player.getPosition().distanceTo(mysteriousRuins) > 3) {
-			Timing.waitCondition(() -> WebWalking.walkTo(mysteriousRuins) && mysteriousRuins.adjustCameraTo(), 8000);
+			Timing.waitCondition(() -> DPath.traverse(mysteriousRuins) && mysteriousRuins.adjustCameraTo(), 8000);
 		}
 	}
 
 	private void walkToAltar() {
 		RSTile altar = new RSTile(fireAltar.getX() + General.random(-1, 1), fireAltar.getY() + General.random(-1, 1));
 		if (Player.getPosition().distanceTo(altar) > 3) {
-			Inventory.open();
-			Timing.waitCondition(() -> WebWalking.walkTo(altar) && altar.adjustCameraTo(), 8000);
+			Timing.waitCondition(() -> DPath.traverse(altar) && altar.adjustCameraTo(), 8000);
 		}
 	}
 
@@ -431,7 +451,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			this.ABCUtil.pickupMouse();
 		}
 		if (this.ABCUtil.shouldRightClick()) {
-			println("[ABC2] Random right click");
+			println("[ABC2] Right clicking");
 			this.ABCUtil.rightClick();
 		}
 		if (this.ABCUtil.shouldRotateCamera()) {
@@ -451,17 +471,27 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 		return true;
 	}
 
+	private Image getImage(String url) {
+		try {
+			return ImageIO.read(new URL(url).openStream());
+		} catch (IOException e) {
+			return null;
+		}
+	}
+
 	@Override
 	public void onPaint(Graphics g) {
+		g.drawImage(paint, 5, 345, null);
 		long timeRan = System.currentTimeMillis() - startTime;
 		double multiplier = getRunningTime() / 3600000.0D;
 		int expPerHour = (int) ((Skills.getXP(SKILLS.RUNECRAFTING) - startExp) / multiplier);
-		g.setColor(Color.GREEN);
-		g.drawString("OS Lava Runes", 400, 285);
-		g.drawString("Status: " + getState(), 400, 300);
-		g.drawString("Experience: " + (Skills.getXP(SKILLS.RUNECRAFTING) - startExp) + " (" + expPerHour + ")/hr", 400,
-				315);
-		g.drawString("Runtime: " + Timing.msToString(timeRan), 400, 330);
+		g.setFont(font);
+		g.setColor(Color.BLACK);
+		g.drawString("State: " + getState(), 250, 400);
+		g.drawString("Experience: " + (Skills.getXP(SKILLS.RUNECRAFTING) - startExp) + " (" + expPerHour + "/hr)", 250,
+				415);
+		g.drawString("Runtime: " + Timing.msToString(timeRan), 250, 430);
+
 	}
 
 	@Override
@@ -470,7 +500,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 		int x, y;
 		x = (int) Mouse.getPos().getX();
 		y = (int) Mouse.getPos().getY();
-		g.setColor(Color.GREEN);
+		g.setColor(Color.WHITE);
 		g.drawLine(x - 5, y, x + 5, y);
 		g.drawLine(x, y - 5, x, y + 5);
 	}
@@ -498,7 +528,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			startButton = new javax.swing.JButton();
 
 			jLabel1.setFont(new java.awt.Font("Tahoma", 0, 24)); // NOI18N
-			jLabel1.setText("OS Lava Runes");
+			jLabel1.setText("OS Lava Runecrafter");
 			jLabel1.setToolTipText("");
 
 			useStaminas.setSelected(true);
