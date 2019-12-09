@@ -13,31 +13,33 @@ import java.net.URL;
 
 import javax.imageio.ImageIO;
 
-import org.tribot.api.DynamicClicking;
+import org.tribot.api.Clicking;
 import org.tribot.api.General;
 import org.tribot.api.Timing;
 import org.tribot.api.input.Mouse;
+import org.tribot.api.interfaces.Positionable;
 import org.tribot.api.types.generic.Condition;
 import org.tribot.api.util.abc.ABCUtil;
 import org.tribot.api2007.Banking;
 import org.tribot.api2007.Camera;
 import org.tribot.api2007.Equipment;
 import org.tribot.api2007.Equipment.SLOTS;
+import org.tribot.api2007.GameTab.TABS;
 import org.tribot.api2007.Game;
 import org.tribot.api2007.GameTab;
-import org.tribot.api2007.GameTab.TABS;
 import org.tribot.api2007.Skills.SKILLS;
 import org.tribot.api2007.Inventory;
 import org.tribot.api2007.Login;
 import org.tribot.api2007.Objects;
+import org.tribot.api2007.PathFinding;
 import org.tribot.api2007.Player;
 import org.tribot.api2007.Skills;
 import org.tribot.api2007.Walking;
 import org.tribot.api2007.WebWalking;
+import org.tribot.api2007.ext.Filters;
 import org.tribot.api2007.types.RSItem;
 import org.tribot.api2007.types.RSObject;
 import org.tribot.api2007.types.RSTile;
-import org.tribot.api2007.types.RSVarBit;
 import org.tribot.api2007.util.DPathNavigator;
 import org.tribot.script.Script;
 import org.tribot.script.ScriptManifest;
@@ -59,66 +61,79 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 	public int[] ring = { 2552, 2554, 2556, 2558, 2560, 2562, 2564 };
 	public int[] stamina = { 12625, 12627, 12629, 12631 };
 	public int[] bankItems = { 12625, 12627, 12629, 12631, 557, 5514, 5512, 5510, 5509 };
+	public int[] essencePouches = new int[] { 5514, 5512, 5510, 5509 };
 	public int startExp = Skills.getXP(SKILLS.RUNECRAFTING);
+	public int startLevel = Skills.getCurrentLevel(SKILLS.RUNECRAFTING);
 
 	public ABCUtil ABCUtil = new ABCUtil();
 
 	public DPathNavigator DPath = new DPathNavigator();
 
-	public final Image paint = getImage("https://i.imgur.com/5L1n7NR.png");
-
 	public Font font = new Font("Orator Std", Font.BOLD, 14);
 
 	public boolean GUI_COMPLETE = false;
-	public boolean staminaSupport = false;
+	public boolean staminaSupport;
+	public boolean mouseKeys;
+	public boolean fullPouches = false;
 
 	@Override
 	public void run() {
 		if (onStart()) {
 			while (true) {
-				long startTime = System.currentTimeMillis();
+				antiban();
 				switch (getState()) {
 				case USING_STAMINA:
-					antiban();
 					stamina();
 					break;
 				case WALKING_TO_BANK:
-					antiban();
 					walkToBank();
 					break;
 				case BANKING:
-					antiban();
 					bank();
 					break;
+				case WITHDRAWING_RING:
+					withdrawRing();
+					break;
+				case WITHDRAWING_STAMINA:
+					withdrawStamina();
+					break;
+				case WITHDRAWING_RUNES:
+					withdrawRunes();
+					break;
+				case WITHDRAWING_TALISMAN:
+					withdrawTalisman();
+					break;
+				case WITHDRAWING_ESSENCE:
+					withdrawEssence();
+					break;
+				case FILLING_POUCHES:
+					fillPouches();
+					break;
 				case TELEPORTING_TO_DUEL_ARENA:
-					antiban();
 					teleport("Duel Arena");
 					break;
 				case WALKING_TO_RUINS:
-					antiban();
 					walkToRuins();
 					break;
 				case ENTERING_RUINS:
-					antiban();
 					enterRuins();
 					break;
 				case WALKING_TO_ALTAR:
-					antiban();
 					walkToAltar();
 					break;
 				case CRAFTING_RUNES:
-					antiban();
 					craftRunes();
 					break;
+				case EMPTYING_POUCHES:
+					emptyPouches();
+					break;
 				case TELEPORTING_TO_CASTLE_WARS:
-					antiban();
 					teleport("Castle Wars");
 					break;
 				default:
 					break;
 				}
-				ABCUtil.generateTrackers(System.currentTimeMillis() - startTime);
-				ABCUtil.generateReactionTime();
+				sleep(300, 350);
 			}
 		}
 	}
@@ -141,24 +156,43 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 		Mouse.setSpeed(General.random(100, 115));
 
+		Camera.setRotationMethod(Camera.ROTATION_METHOD.DEFAULT);
+
 		println("OS Lava Runecrafter started.");
 
 		return true;
 	}
 
 	private enum State {
-		USING_STAMINA, WALKING_TO_BANK, BANKING, FILLING_POUCHES, TELEPORTING_TO_DUEL_ARENA, WALKING_TO_RUINS,
-		ENTERING_RUINS, WALKING_TO_ALTAR, CRAFTING_RUNES, TELEPORTING_TO_CASTLE_WARS, IDLE;
+		USING_STAMINA, WALKING_TO_BANK, BANKING, WITHDRAWING_STAMINA, WITHDRAWING_RUNES, WITHDRAWING_RING,
+		WITHDRAWING_TALISMAN, WITHDRAWING_ESSENCE, TELEPORTING_TO_DUEL_ARENA, WALKING_TO_RUINS, ENTERING_RUINS,
+		WALKING_TO_ALTAR, CRAFTING_RUNES, EMPTYING_POUCHES, FILLING_POUCHES, TELEPORTING_TO_CASTLE_WARS, IDLE;
 	}
 
 	private State getState() {
 		if (staminaSupport && Game.getRunEnergy() < 30) {
 			return State.USING_STAMINA;
 		} else if (isAtBank()) {
-			if (Inventory.find("Pure essence").length == 0)
-				return State.BANKING;
-			else {
+			if (hasSupplies() && Inventory.isFull()) {
 				return State.TELEPORTING_TO_DUEL_ARENA;
+			} else {
+				if (!fullPouches && Inventory.find("Pure essence").length > 0) {
+					return State.FILLING_POUCHES;
+				} else if (!Banking.isBankScreenOpen()) {
+					return State.BANKING;
+				} else {
+					if (staminaSupport && Inventory.find(stamina).length == 0) {
+						return State.WITHDRAWING_STAMINA;
+					} else if (Inventory.find("Earth rune").length == 0) {
+						return State.WITHDRAWING_RUNES;
+					} else if (!Equipment.isEquipped(ring) || isLastCharge()) {
+						return State.WITHDRAWING_RING;
+					} else if (Inventory.find("Earth talisman").length == 0) {
+						return State.WITHDRAWING_TALISMAN;
+					} else if (Inventory.find("Pure essence").length == 0 || !Inventory.isFull()) {
+						return State.WITHDRAWING_ESSENCE;
+					}
+				}
 			}
 		} else if (isAtDuelArena()) {
 			return State.WALKING_TO_RUINS;
@@ -167,20 +201,34 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 		} else if (isAtFireAltar()) {
 			return State.WALKING_TO_ALTAR;
 		} else {
-			RSObject[] ruins = Objects.findNearest(5, "Mysterious ruins");
-			if (ruins != null && ruins.length > 0)
-				return State.ENTERING_RUINS;
-			else {
+			RSObject[] ruins = Objects.findNearest(15, "Mysterious ruins");
+			if (ruins != null && ruins.length > 0) {
+				if (ruins[0].isOnScreen())
+					return State.ENTERING_RUINS;
+			} else {
 				RSObject[] altar = Objects.findNearest(5, "Altar");
 				if (altar != null && altar.length > 0) {
-					if (Inventory.find("Pure essence").length > 0)
-						return State.CRAFTING_RUNES;
-					else
-						return State.TELEPORTING_TO_CASTLE_WARS;
+					if (altar[0].isOnScreen()) {
+						if (Inventory.find("Pure essence").length > 0)
+							return State.CRAFTING_RUNES;
+						else if (fullPouches)
+							return State.EMPTYING_POUCHES;
+						else
+							return State.TELEPORTING_TO_CASTLE_WARS;
+					}
 				}
 			}
 		}
 		return State.IDLE;
+	}
+
+	private boolean hasSupplies() {
+		boolean hasRing = Equipment.isEquipped(ring) && !isLastCharge();
+		boolean hasRunes = Inventory.find("Earth rune").length > 0;
+		boolean hasStamina = (!staminaSupport) || (staminaSupport && Inventory.find(stamina).length > 0);
+		boolean hasTalisman = Inventory.find("Earth talisman").length > 0;
+		boolean hasEssence = Inventory.find("Pure essence").length > 0;
+		return (fullPouches && hasRing && hasRunes && hasStamina && hasTalisman && hasEssence);
 	}
 
 	private boolean isAtBank() {
@@ -218,13 +266,29 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 		if (!Banking.isBankScreenOpen())
 			Banking.openBank();
 
-		Banking.depositAllExcept(bankItems);
-		withdrawRing();
-		withdrawStamina();
-		withdrawRunes();
-		withdrawTalisman();
-		withdrawEssence();
-		Banking.close();
+		if (mouseKeys) {
+			RSItem[] items = Inventory
+					.find(Filters.Items
+							.nameNotContains(
+									"Earth rune")
+							.combine(Filters.Items.nameNotContains("Stamina ").combine(
+									Filters.Items.nameNotContains(" pouch")
+											.combine(Filters.Items.nameNotContains("Pure essence")
+													.combine(Filters.Items.nameNotContains(" talisman"), false), false),
+									false), false));
+			if (items.length > 0) {
+				for (RSItem item : items) {
+					if (item.hover()) {
+						Mouse.click(3);
+						Point point = new Point((int) Mouse.getPos().getX(), (int) Mouse.getPos().getY() + 100);
+						Mouse.hop(point);
+						Mouse.click(1);
+					}
+					sleep(300, 350);
+				}
+			}
+		} else
+			Banking.depositAllExcept(bankItems);
 	}
 
 	private void withdrawRing() {
@@ -273,6 +337,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				RSItem[] staminaPotion = Banking.find(stamina);
 				if (staminaPotion != null && staminaPotion.length > 0) {
 					Banking.withdraw(1, stamina);
+					Timing.waitCondition(() -> Inventory.find(stamina).length > 0, 3000);
 				}
 			}
 		}
@@ -288,7 +353,20 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			println("No earth runes in bank.");
 			stopScript();
 		} else {
-			Banking.withdraw(0, "Earth rune");
+			RSItem[] item = Banking.find("Earth rune");
+			if (item.length > 0) {
+				if (item[0].hover()) {
+					if (mouseKeys) {
+						Mouse.click(3);
+						Point point = new Point((int) Mouse.getPos().getX(), (int) Mouse.getPos().getY() + 100);
+						Mouse.hop(point);
+						Mouse.click(1);
+					} else {
+						Banking.withdraw(0, "Earth rune");
+					}
+					Timing.waitCondition(() -> Inventory.find("Earth rune").length > 0, 3000);
+				}
+			}
 			Timing.waitCondition(new Condition() {
 
 				@Override
@@ -311,7 +389,11 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			println("No earth talisman in bank");
 			stopScript();
 		} else {
-			Banking.withdraw(1, "Earth talisman");
+			int numPouches = Inventory.find(essencePouches).length;
+			if (numPouches > 0)
+				Banking.withdraw(numPouches, "Earth talisman");
+			else
+				Banking.withdraw(1, "Earth talisman");
 			Timing.waitCondition(new Condition() {
 				@Override
 				public boolean active() {
@@ -333,14 +415,40 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			println("No essence in bank");
 			stopScript();
 		} else {
-			Banking.withdraw(0, "Pure essence");
+			RSItem[] item = Banking.find("Pure essence");
+			if (item.length > 0) {
+				if (item[0].hover()) {
+					if (mouseKeys) {
+						Mouse.click(3);
+						Point point = new Point((int) Mouse.getPos().getX(), (int) Mouse.getPos().getY() + 100);
+						Mouse.hop(point);
+						Mouse.click(1);
+					} else {
+						Banking.withdraw(0, "Pure essence");
+					}
+				}
+			}
 			Timing.waitCondition(new Condition() {
 				@Override
 				public boolean active() {
 					sleep(100);
-					return Inventory.find("Pure essence").length > 0;
+					return Inventory.find("Pure essence").length > 0 && Banking.close();
 				}
 			}, General.random(8000, 9000));
+		}
+	}
+
+	private void fillPouches() {
+		RSItem[] pouches = Inventory.find(essencePouches);
+		if (pouches.length > 0) {
+			for (RSItem pouch : pouches) {
+				if (Clicking.click("Fill", pouch)) {
+					sleep(500, 550);
+				}
+			}
+			fullPouches = true;
+		} else {
+			fullPouches = true;
 		}
 	}
 
@@ -374,26 +482,42 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				}, General.random(8000, 9000));
 			}
 		}
+		sleep(400, 450);
 	}
 
 	private void walkToBank() {
 		if (isAtCastleWars()) {
 			if (Player.getPosition().distanceTo(bankChest) > 3) {
-				Timing.waitCondition(() -> DPath.traverse(bankChest) && bankChest.adjustCameraTo(), 3000);
+				Walking.clickTileMM(bankChest, 1);
+				Timing.waitCondition(() -> !Player.isMoving(), 3000);
 			}
 		}
 	}
 
 	private void walkToRuins() {
 		if (Player.getPosition().distanceTo(mysteriousRuins) > 3) {
-			Timing.waitCondition(() -> DPath.traverse(mysteriousRuins) && mysteriousRuins.adjustCameraTo(), 8000);
+			Walking.clickTileMM(new RSTile(3311, 3249, 0), 1);
+			if (Camera.getCameraRotation() < 300 || Camera.getCameraRotation() > 360) {
+				Camera.setCameraRotation(General.random(300, 360));
+			}
+			if (Camera.getCameraAngle() > 30) {
+				Camera.setCameraAngle(General.random(20, 40));
+			}
 		}
 	}
 
 	private void walkToAltar() {
 		RSTile altar = new RSTile(fireAltar.getX() + General.random(-1, 1), fireAltar.getY() + General.random(-1, 1));
 		if (Player.getPosition().distanceTo(altar) > 3) {
-			Timing.waitCondition(() -> DPath.traverse(altar) && altar.adjustCameraTo(), 8000);
+			Timing.waitCondition(() -> Walking.clickTileMM(altar, 1) && Player.isMoving() && Inventory.open(), 8000);
+			if (Camera.getCameraRotation() < 200 || Camera.getCameraRotation() > 300) {
+				Camera.setCameraRotation(General.random(200, 300));
+			}
+			if (Camera.getCameraAngle() < 90) {
+				Camera.setCameraAngle(General.random(90, 100));
+			}
+			Timing.waitCondition(
+					() -> Objects.find(20, 34764)[0].isOnScreen() && Player.getPosition().distanceTo(altar) < 5, 8000);
 		}
 	}
 
@@ -427,71 +551,71 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				}
 			}
 		}
+		checkXP();
+	}
+
+	private void emptyPouches() {
+		RSItem[] pouches = Inventory.find(essencePouches);
+		if (pouches.length > 0) {
+			for (RSItem pouch : pouches) {
+				if (Clicking.click("Empty", pouch)) {
+					sleep(500, 550);
+				}
+			}
+			fullPouches = false;
+		} else {
+			fullPouches = false;
+		}
+	}
+
+	public void checkXP() {
+		switch (General.random(0, 10)) {
+		case 0:
+			println("[ABC2] Checking XP");
+			if (GameTab.open(TABS.STATS)) {
+				Skills.hover(SKILLS.RUNECRAFTING);
+				sleep(this.ABCUtil.generateReactionTime());
+			}
+			break;
+		}
 	}
 
 	public void antiban() {
-		if (this.ABCUtil.shouldCheckTabs()) {
-			println("[ABC2] Checking random tab");
-			this.ABCUtil.checkTabs();
-		}
-		if (this.ABCUtil.shouldCheckXP()) {
-			println("[ABC2] Checking XP");
-			this.ABCUtil.checkXP();
-		}
-		if (this.ABCUtil.shouldExamineEntity()) {
-			println("[ABC2] Examining random entity");
-			this.ABCUtil.examineEntity();
-		}
-		if (this.ABCUtil.shouldMoveMouse()) {
-			println("[ABC2] Moving mouse");
-			this.ABCUtil.moveMouse();
-		}
-		if (this.ABCUtil.shouldPickupMouse()) {
-			println("[ABC2] Picking up mouse");
-			this.ABCUtil.pickupMouse();
-		}
-		if (this.ABCUtil.shouldRightClick()) {
-			println("[ABC2] Right clicking");
-			this.ABCUtil.rightClick();
-		}
-		if (this.ABCUtil.shouldRotateCamera()) {
-			println("[ABC2] Rotating camera");
-			this.ABCUtil.rotateCamera();
-		}
-		if (this.ABCUtil.shouldLeaveGame()) {
+		switch (General.random(1, 500)) {
+		case 25:
 			println("[ABC2] Moving mouse off screen");
-			this.ABCUtil.leaveGame();
-		}
-	}
-
-	protected boolean performHumanActions() {
-		ABCUtil.moveMouse();
-		ABCUtil.examineEntity();
-		ABCUtil.rightClick();
-		return true;
-	}
-
-	private Image getImage(String url) {
-		try {
-			return ImageIO.read(new URL(url).openStream());
-		} catch (IOException e) {
-			return null;
+			Mouse.leaveGame();
+			sleep(this.ABCUtil.generateReactionTime());
+			break;
+		case 50:
+			long waitTime = this.ABCUtil.generateReactionTime();
+			println("[ABC2] Sleeping for " + waitTime);
+			sleep(waitTime);
 		}
 	}
 
 	@Override
 	public void onPaint(Graphics g) {
-		g.drawImage(paint, 5, 345, null);
 		long timeRan = System.currentTimeMillis() - startTime;
 		double multiplier = getRunningTime() / 3600000.0D;
 		int expPerHour = (int) ((Skills.getXP(SKILLS.RUNECRAFTING) - startExp) / multiplier);
-		g.setFont(font);
-		g.setColor(Color.BLACK);
-		g.drawString("State: " + getState(), 250, 400);
-		g.drawString("Experience: " + (Skills.getXP(SKILLS.RUNECRAFTING) - startExp) + " (" + expPerHour + "/hr)", 250,
-				415);
-		g.drawString("Runtime: " + Timing.msToString(timeRan), 250, 430);
+		int gainedLevels = Skills.getCurrentLevel(SKILLS.RUNECRAFTING) - startLevel;
 
+		g.setColor(new Color(0, 0, 0, .8f));
+		g.drawRect(5, 345, 505, 130);
+		g.fillRect(5, 345, 505, 130);
+
+		Font font = new Font("Verdana", Font.BOLD, 14);
+		g.setFont(font);
+
+		g.setColor(Color.WHITE);
+		g.drawString("OS Lava Runecrafter", 15, 365);
+		g.drawString("Runtime: " + Timing.msToString(System.currentTimeMillis() - startTime), 15, 395);
+		g.drawString("State: " + getState(), 15, 410);
+		g.drawString("XP Gained: " + (Skills.getXP(SKILLS.RUNECRAFTING) - startExp) + " (" + expPerHour + "/hr)", 15,
+				425);
+		g.drawString("Level: " + Skills.getCurrentLevel(SKILLS.RUNECRAFTING) + " (Gained: " + gainedLevels + ")", 15,
+				440);
 	}
 
 	@Override
@@ -526,9 +650,12 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			jLabel1 = new javax.swing.JLabel();
 			useStaminas = new javax.swing.JCheckBox();
 			startButton = new javax.swing.JButton();
+			useMouseKeys = new javax.swing.JCheckBox();
+
+			setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
 			jLabel1.setFont(new java.awt.Font("Tahoma", 0, 24)); // NOI18N
-			jLabel1.setText("OS Lava Runecrafter");
+			jLabel1.setText("OS Lava Runes");
 			jLabel1.setToolTipText("");
 
 			useStaminas.setSelected(true);
@@ -541,6 +668,8 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				}
 			});
 
+			useMouseKeys.setText("Use MouseKeys");
+
 			javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
 			getContentPane().setLayout(layout);
 			layout.setHorizontalGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -548,31 +677,37 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 							layout.createSequentialGroup()
 									.addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
 									.addComponent(jLabel1).addGap(110, 110, 110))
-					.addGroup(layout.createSequentialGroup().addContainerGap().addComponent(useStaminas)
+					.addGroup(layout.createSequentialGroup().addContainerGap()
+							.addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+									.addComponent(useStaminas).addComponent(useMouseKeys))
 							.addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED,
 									javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
 							.addComponent(startButton).addContainerGap()));
 			layout.setVerticalGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-					.addGroup(layout.createSequentialGroup().addContainerGap().addComponent(jLabel1).addGap(18, 18, 18)
-							.addComponent(useStaminas)
-							.addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-					.addGroup(javax.swing.GroupLayout.Alignment.TRAILING,
-							layout.createSequentialGroup()
-									.addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-									.addComponent(startButton).addContainerGap()));
+					.addGroup(layout.createSequentialGroup().addContainerGap()
+							.addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+									.addGroup(layout.createSequentialGroup().addComponent(jLabel1).addGap(18, 18, 18)
+											.addComponent(useStaminas)
+											.addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+											.addComponent(useMouseKeys).addGap(0, 2, Short.MAX_VALUE))
+									.addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+											.addGap(0, 0, Short.MAX_VALUE).addComponent(startButton)))
+							.addContainerGap()));
 
 			pack();
 		}// </editor-fold>
 
 		private void startButtonActionPerformed(java.awt.event.ActionEvent evt) {
-			GUI_COMPLETE = true;
-
+			mouseKeys = useMouseKeys.isSelected();
 			staminaSupport = useStaminas.isSelected();
+
+			GUI_COMPLETE = true;
 		}
 
 		// Variables declaration - do not modify
 		private javax.swing.JLabel jLabel1;
 		private javax.swing.JButton startButton;
+		private javax.swing.JCheckBox useMouseKeys;
 		private javax.swing.JCheckBox useStaminas;
 		// End of variables declaration
 	}
