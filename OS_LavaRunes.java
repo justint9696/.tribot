@@ -52,6 +52,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 	public long startTime = System.currentTimeMillis();
 
+	public RSTile[] ruinsPath = { new RSTile(3309, 3248, 0), new RSTile(3311, 3249, 0), new RSTile(3312, 3253, 0) };
 	public RSTile bankChest = new RSTile(2443, 3083, 0);
 	public RSTile duelArena = new RSTile(3316, 3236, 0);
 	public RSTile castleWars = new RSTile(2439, 3090, 0);
@@ -69,8 +70,6 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 	public DPathNavigator DPath = new DPathNavigator();
 
-	public Font font = new Font("Orator Std", Font.BOLD, 14);
-
 	public boolean GUI_COMPLETE = false;
 	public boolean staminaSupport;
 	public boolean mouseKeys;
@@ -80,60 +79,61 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 	public void run() {
 		if (onStart()) {
 			while (true) {
-				antiban();
-				switch (getState()) {
-				case USING_STAMINA:
-					stamina();
-					break;
-				case WALKING_TO_BANK:
-					walkToBank();
-					break;
-				case BANKING:
-					bank();
-					break;
-				case WITHDRAWING_RING:
-					withdrawRing();
-					break;
-				case WITHDRAWING_STAMINA:
-					withdrawStamina();
-					break;
-				case WITHDRAWING_RUNES:
-					withdrawRunes();
-					break;
-				case WITHDRAWING_TALISMAN:
-					withdrawTalisman();
-					break;
-				case WITHDRAWING_ESSENCE:
-					withdrawEssence();
-					break;
-				case FILLING_POUCHES:
-					fillPouches();
-					break;
-				case TELEPORTING_TO_DUEL_ARENA:
-					teleport("Duel Arena");
-					break;
-				case WALKING_TO_RUINS:
-					walkToRuins();
-					break;
-				case ENTERING_RUINS:
-					enterRuins();
-					break;
-				case WALKING_TO_ALTAR:
-					walkToAltar();
-					break;
-				case CRAFTING_RUNES:
-					craftRunes();
-					break;
-				case EMPTYING_POUCHES:
-					emptyPouches();
-					break;
-				case TELEPORTING_TO_CASTLE_WARS:
-					teleport("Castle Wars");
-					break;
-				default:
-					break;
+				if (Timing.waitCondition(() -> Antiban.performHumanActions(), 3000)) {
+					switch (getState()) {
+					case USING_STAMINA:
+						stamina();
+						break;
+					case WALKING_TO_BANK:
+						walkToBank();
+						break;
+					case BANKING:
+						bank();
+						break;
+					case WITHDRAWING_RING:
+						withdrawRing();
+						break;
+					case WITHDRAWING_STAMINA:
+						withdrawStamina();
+						break;
+					case WITHDRAWING_RUNES:
+						withdrawRunes();
+						break;
+					case WITHDRAWING_TALISMAN:
+						withdrawTalisman();
+						break;
+					case WITHDRAWING_ESSENCE:
+						withdrawEssence();
+						break;
+					case FILLING_POUCHES:
+						fillPouches();
+						break;
+					case TELEPORTING_TO_DUEL_ARENA:
+						teleport("Duel Arena");
+						break;
+					case WALKING_TO_RUINS:
+						walkToRuins();
+						break;
+					case ENTERING_RUINS:
+						enterRuins();
+						break;
+					case WALKING_TO_ALTAR:
+						walkToAltar();
+						break;
+					case CRAFTING_RUNES:
+						craftRunes();
+						break;
+					case EMPTYING_POUCHES:
+						emptyPouches();
+						break;
+					case TELEPORTING_TO_CASTLE_WARS:
+						teleport("Castle Wars");
+						break;
+					default:
+						break;
+					}
+					sleep(300, 350);
 				}
-				sleep(300, 350);
 			}
 		}
 	}
@@ -389,9 +389,9 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 			println("No earth talisman in bank");
 			stopScript();
 		} else {
-			int numPouches = Inventory.find(essencePouches).length;
-			if (numPouches > 0)
-				Banking.withdraw(numPouches, "Earth talisman");
+			RSItem[] numPouches = Inventory.find(essencePouches);
+			if (numPouches.length > 0)
+				Banking.withdraw(2, "Earth talisman");
 			else
 				Banking.withdraw(1, "Earth talisman");
 			Timing.waitCondition(new Condition() {
@@ -447,9 +447,8 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				}
 			}
 			fullPouches = true;
-		} else {
-			fullPouches = true;
 		}
+		fullPouches = true;
 	}
 
 	private boolean isLastCharge() {
@@ -496,7 +495,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 
 	private void walkToRuins() {
 		if (Player.getPosition().distanceTo(mysteriousRuins) > 3) {
-			Walking.clickTileMM(new RSTile(3311, 3249, 0), 1);
+			Walking.walkPath(ruinsPath);
 			if (Camera.getCameraRotation() < 300 || Camera.getCameraRotation() > 360) {
 				Camera.setCameraRotation(General.random(300, 360));
 			}
@@ -551,7 +550,7 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 				}
 			}
 		}
-		checkXP();
+		Antiban.performCheckXP();
 	}
 
 	private void emptyPouches() {
@@ -559,39 +558,17 @@ public class OS_LavaRunes extends Script implements Painting, MousePainting {
 		if (pouches.length > 0) {
 			for (RSItem pouch : pouches) {
 				if (Clicking.click("Empty", pouch)) {
-					sleep(500, 550);
+					Timing.waitCondition(new Condition() {
+						@Override
+						public boolean active() {
+							return Inventory.find("Pure essence").length > 0;
+						}
+					}, General.random(8000, 9000));
 				}
 			}
 			fullPouches = false;
-		} else {
-			fullPouches = false;
 		}
-	}
-
-	public void checkXP() {
-		switch (General.random(0, 10)) {
-		case 0:
-			println("[ABC2] Checking XP");
-			if (GameTab.open(TABS.STATS)) {
-				Skills.hover(SKILLS.RUNECRAFTING);
-				sleep(this.ABCUtil.generateReactionTime());
-			}
-			break;
-		}
-	}
-
-	public void antiban() {
-		switch (General.random(1, 500)) {
-		case 25:
-			println("[ABC2] Moving mouse off screen");
-			Mouse.leaveGame();
-			sleep(this.ABCUtil.generateReactionTime());
-			break;
-		case 50:
-			long waitTime = this.ABCUtil.generateReactionTime();
-			println("[ABC2] Sleeping for " + waitTime);
-			sleep(waitTime);
-		}
+		fullPouches = false;
 	}
 
 	@Override
