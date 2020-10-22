@@ -18,8 +18,8 @@ public class WalkToRuins implements Node {
 
 	@Override
 	public boolean validate() {
-		MysteriousRuins = Objects.find(15, 34817);
-		return Player.getPosition().distanceTo(DuelArena) < 5 || MysteriousRuins.length > 0 && !(MysteriousRuins[0].isClickable() || MysteriousRuins[0].isOnScreen());
+		MysteriousRuins = Objects.find(30, 34817);
+		return !Player.isMoving() && Player.getPosition().distanceTo(DuelArena) < 5 && MysteriousRuins.length > 0 && !(MysteriousRuins[0].isClickable() || MysteriousRuins[0].isOnScreen());
 	}
 
 	@Override

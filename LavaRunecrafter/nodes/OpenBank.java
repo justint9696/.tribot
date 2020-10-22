@@ -13,26 +13,25 @@ import scripts.LavaRunecrafter.utils.Node;
 
 public class OpenBank implements Node {
 	
-	RSObject[] obj;
+	RSObject[] BankChest;
 
 	@Override
 	public boolean validate() {
-		obj = Objects.find(10, 4483);
-		return obj.length > 0 ? !Banking.isBankScreenOpen() && !Inventory.isFull() : false;
+		BankChest = Objects.find(10, 4483);
+		return BankChest.length > 0 ? !Banking.isBankScreenOpen() && !Inventory.isFull() : false;
 	}
 
 	@Override
 	public void execute() {
-		RSObject bankChest = obj[0];
-			if (bankChest.isClickable() && bankChest.isOnScreen()) {
-			if (bankChest.hover()) {
-				if (bankChest.click("Use")) {
-					Timing.waitCondition(() -> Banking.isBankScreenOpen(), 5000);
+			if (BankChest[0].isClickable() && BankChest[0].isOnScreen()) {
+				if (BankChest[0].hover()) {
+					if (BankChest[0].click("Use")) {
+						Timing.waitCondition(() -> Banking.isBankScreenOpen(), 5000);
+					}
 				}
-			}
 		} else {
-			if (Walking.clickTileMM(new RSTile(bankChest.getPosition().getX() + General.random(-3, 3), bankChest.getPosition().getY() + General.random(-3, 3)), 1)) {
-				bankChest.adjustCameraTo();
+			if (Walking.clickTileMM(new RSTile(BankChest[0].getPosition().getX() + General.random(-3, 3), BankChest[0].getPosition().getY() + General.random(-3, 3)), 1)) {
+				BankChest[0].adjustCameraTo();
 			}
 		}
 	}

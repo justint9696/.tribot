@@ -2,6 +2,7 @@ package scripts.LavaRunecrafter.nodes;
 
 import org.tribot.api.General;
 import org.tribot.api.Timing;
+import org.tribot.api.input.Mouse;
 import org.tribot.api2007.Inventory;
 import org.tribot.api2007.Objects;
 import org.tribot.api2007.Player;
@@ -31,8 +32,14 @@ public class CraftRunes implements Node {
 						do {
 							General.sleep(100);
 						} while (Player.getAnimation() > -1);
-						if (FireAltar[0].click("Use")) {
-							Timing.waitCondition(() -> Player.getAnimation() > -1, 5000);
+						if (FireAltar[0].isClickable() && FireAltar[0].isOnScreen()) {
+							if (FireAltar[0].click("Use")) {
+								Timing.waitCondition(() -> Player.getAnimation() > -1, 5000);
+							} else {
+								Mouse.click(1);
+							}
+						} else {
+							FireAltar[0].adjustCameraTo();
 						}
 					}
 				}

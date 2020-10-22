@@ -3,7 +3,6 @@ package scripts.LavaRunecrafter;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.util.ArrayList;
-
 import org.tribot.api.General;
 import org.tribot.api.Timing;
 import org.tribot.api.input.Mouse;
@@ -71,6 +70,7 @@ public class LavaRunecrafter extends Script implements Painting, MessageListenin
 					currentTask = node.display();
 					node.execute();
 				}
+				sleep(100);
 			}
 			sleep(100);
 		} while (Variables.isRunning());
