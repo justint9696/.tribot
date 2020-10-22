@@ -1,8 +1,6 @@
+Lava Runecrafter
+
 Developer: justint9696
-
-Date: 10/22/2020
-
-Name: Lava Runecrafter
 
 Description: 
 
