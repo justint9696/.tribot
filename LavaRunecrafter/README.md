@@ -1,13 +1,13 @@
 Version 1.0: 
 
-  *Features:
+  Features:
     - Ring of duelings
     - Magic imbue
     - Essence pouches
     - Binding necklaces
     - Rune pouch (not Magic imbue runes)
 
-  *Need to Implement:
+  Need to Implement:
     - NPC Contact
     - Magic imbue runes without rune pouch
     - Antiban
