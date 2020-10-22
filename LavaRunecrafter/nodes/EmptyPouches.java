@@ -1,6 +1,9 @@
 package scripts.LavaRunecrafter.nodes;
 
+import java.awt.event.KeyEvent;
+
 import org.tribot.api.General;
+import org.tribot.api.input.Keyboard;
 import org.tribot.api2007.Inventory;
 import org.tribot.api2007.Objects;
 import org.tribot.api2007.types.RSItem;
@@ -22,6 +25,7 @@ public class EmptyPouches implements Node {
 	@Override
 	public void execute() {
 		final int[] ids = { 5514, 5512, 5510, 5509 };
+		Keyboard.sendPress(KeyEvent.CHAR_UNDEFINED, KeyEvent.VK_SHIFT);
 		for (RSItem essencePouch : Inventory.find(ids)) {
 			if (essencePouch.hover()) {
 				if (essencePouch.click("Empty")) {
@@ -29,6 +33,7 @@ public class EmptyPouches implements Node {
 				}
 			}
 		}
+		Keyboard.sendRelease(KeyEvent.CHAR_UNDEFINED, KeyEvent.VK_SHIFT);
 		Variables.emptyPouches();
 	}
 

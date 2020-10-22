@@ -6,6 +6,9 @@ import java.util.ArrayList;
 
 import org.tribot.api.General;
 import org.tribot.api.Timing;
+import org.tribot.api.input.Mouse;
+import org.tribot.api2007.Camera;
+import org.tribot.api2007.Camera.ROTATION_METHOD;
 import org.tribot.api2007.Skills;
 import org.tribot.api2007.Skills.SKILLS;
 import org.tribot.script.Script;
@@ -42,6 +45,8 @@ public class LavaRunecrafter extends Script implements Painting, MessageListenin
 
 	@Override
 	public void run() {
+		Mouse.setSpeed(General.random(115, 130));
+		Camera.setRotationMethod(ROTATION_METHOD.ONLY_MOUSE);
 		nodes.add(new OpenBank());
 		nodes.add(new Deposit());
 		nodes.add(new WithdrawRunes());
@@ -76,11 +81,20 @@ public class LavaRunecrafter extends Script implements Painting, MessageListenin
 		double multiplier = getRunningTime() / 3600000.0D;
 		long GainedXP = Skills.getXP(SKILLS.RUNECRAFTING) - StartXP;
 		long XPPerHour = (long) (GainedXP / multiplier);
-		
+		int CurrentLevel = Skills.getActualLevel(SKILLS.RUNECRAFTING);
+		long XPTNL = Skills.getXPToLevel(SKILLS.RUNECRAFTING, CurrentLevel + 1);
+		double TTNL;
+		try {
+			TTNL = (3600000.0D * XPTNL / XPPerHour);
+		} catch (ArithmeticException e) {
+			TTNL = 0.0D;
+		}
 		g.setColor(Color.WHITE);
-		g.drawString("Runtime: " + Timing.msToString(getRunningTime()), 400, 300);
-		g.drawString("Experience: " + GainedXP + "(" + XPPerHour + ")", 400, 315);
-		g.drawString("Current Task: " + currentTask, 400, 330);
+		g.drawString("Runtime: " + Timing.msToString(getRunningTime()), 330, 270);
+		g.drawString("Experience: " + GainedXP + " (" + XPPerHour + "/hr)", 330, 285);
+		g.drawString("Next Level: " + (CurrentLevel + 1) + " (" + XPTNL + ")", 330, 300);
+		g.drawString("Time Until Next Level: " + Timing.msToString(Math.round(TTNL)), 330, 315);
+		g.drawString("Current Task: " + currentTask, 330, 330);
 	}
 	
 	@Override

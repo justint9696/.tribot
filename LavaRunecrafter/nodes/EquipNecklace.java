@@ -16,9 +16,9 @@ public class EquipNecklace implements Node {
 
 	@Override
 	public void execute() {
-		RSItem[] ringOfDueling = Inventory.find("Binding necklace");
-		if (ringOfDueling[0].hover()) {
-			if (ringOfDueling[0].click("Wear")) {
+		RSItem[] BindingNecklace = Inventory.find("Binding necklace");
+		if (BindingNecklace[0].hover()) {
+			if (BindingNecklace[0].click("Wear")) {
 				Timing.waitCondition(() -> Equipment.find("Binding necklace").length > 0, 5000);
 			}
 		}
@@ -26,7 +26,7 @@ public class EquipNecklace implements Node {
 
 	@Override
 	public String display() {
-		return "Equip Ring of Dueling";
+		return "Equip Binding necklace";
 	}
 
 }

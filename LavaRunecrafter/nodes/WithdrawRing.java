@@ -17,7 +17,7 @@ public class WithdrawRing implements Node {
 
 	@Override
 	public boolean validate() {
-		return Banking.isBankScreenOpen() && (Equipment.find(ids).length == 0 || Equipment.find(2566).length > 1);
+		return Banking.isBankScreenOpen() && (Equipment.find(ids).length == 0 || Equipment.find(2566).length > 0);
 	}
 
 	@Override
@@ -26,7 +26,7 @@ public class WithdrawRing implements Node {
 		if (ringOfDueling.length > 0) {
 			if (ringOfDueling[0].hover()) {
 				if (Banking.withdraw(1, ids)) {
-					Timing.waitCondition(() -> Inventory.find(ids).length > 1, 5000);
+					Timing.waitCondition(() -> Inventory.find(ids).length > 0, 5000);
 				}
 			}
 		} else {
