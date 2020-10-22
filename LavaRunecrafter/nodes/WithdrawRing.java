@@ -17,7 +17,7 @@ public class WithdrawRing implements Node {
 
 	@Override
 	public boolean validate() {
-		return Banking.isBankScreenOpen() && Equipment.find(ids).length == 0;
+		return Banking.isBankScreenOpen() && (Equipment.find(ids).length == 0 || Equipment.find(2566).length > 1);
 	}
 
 	@Override
